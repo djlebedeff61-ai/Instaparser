@@ -1,0 +1,50 @@
+
+name: macOS build (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'IGParserApp.py'
+      - 'requirements.txt'
+      - '.github/workflows/**'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          brew update
+          brew install create-dmg || true
+
+      - name: Build .app with PyInstaller
+        run: |
+          source .venv/bin/activate
+          pyinstaller --onefile --windowed --name IGParser IGParserApp.py
+
+      - name: Build DMG
+        run: |
+          create-dmg "dist/IGParser.dmg" "dist/IGParser.app" || \
+          (echo "create-dmg failed; installing fallback" && brew install create-dmg && create-dmg "dist/IGParser.dmg" "dist/IGParser.app")
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IGParser-macOS-unsigned
+          path: |
+            dist/IGParser.app
+            dist/IGParser.dmg
